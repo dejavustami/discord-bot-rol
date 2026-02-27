@@ -6,7 +6,7 @@ import random
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
-# Render Port Hilesi
+# --- RENDER PORT HİLESİ ---
 class S(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -19,37 +19,67 @@ def run_server():
 
 threading.Thread(target=run_server, daemon=True).start()
 
-# Ayarlar
+# --- AYARLAR VE INTENTS ---
 intents = discord.Intents.default()
 intents.members = True          
 intents.message_content = True  
 intents.reactions = True        
+intents.invites = True # Davetleri takip etmek için gerekli
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 TOKEN = os.getenv('TOKEN')
-KANAL_ID = 1248468672171868214
-ROL_ID = 1473455349729067151
+KANAL_ID = 1248468672171868214  # Rol alma kanalı
+ROL_ID = 1473455349729067151    # Verilecek rol
 EMOJI = '🔞'
+HOSGELDIN_KANAL_ID = 1248468672171868214 # Üye giriş mesajının gideceği kanal
 KANAL_LISTESI = [1473455979105489068, 1473455994309705749, 1473455988962234524]
+
+invites = {} # Davetleri tutacak sözlük
 
 @bot.event
 async def on_ready():
-    print(f'Bot {bot.user} olarak giriş yaptı!')
+    print(f'Bot {bot.user} aktif ve davetleri tarıyor!')
+    # Mevcut davetleri her sunucu için kaydet
+    for guild in bot.guilds:
+        try:
+            invites[guild.id] = await guild.invites()
+        except:
+            pass
     if not ghost_mention.is_running():
         ghost_mention.start()
 
-# --- YENİ ÜYE KATILINCA DM ATMA ---
+# --- ÜYE KATILINCA (DM + KANAL MESAJI) ---
 @bot.event
 async def on_member_join(member):
+    # Davet edeni bulma işlemi
+    inviter_name = "Bilinmiyor"
+    try:
+        before = invites.get(member.guild.id, [])
+        after = await member.guild.invites()
+        invites[member.guild.id] = after
+        for invite in before:
+            if invite.uses < next((i.uses for i in after if i.code == invite.code), 0):
+                inviter_name = invite.inviter.name
+                break
+    except:
+        pass
+
+    # 1. Kanala Mesaj Atma
+    channel = bot.get_channel(HOSGELDIN_KANAL_ID)
+    if channel:
+        toplam = len(member.guild.members)
+        await channel.send(f"📥 **{member.name}**, **{inviter_name}** tarafından davet edildi ve sunucuda **{toplam}** kişi olduk!")
+
+    # 2. Üyeye DM Atma
     try:
         embed = discord.Embed(
-            title=f"ZONNAX'a hoş geldin, {member.name}!",
-            description="Sunucuda bu kanaldaki 18+ tikine basarsan kanallar açılır: <#1248468672171868214>\n\nİyi eğlenceler!",
+            title=f"ZONNAX'a hoş geldin!",
+            description=f"Selam {member.name}, kanalları görmek için tike basmayı unutma: <#{KANAL_ID}>",
             color=discord.Color.purple()
         )
         await member.send(embed=embed)
-    except discord.Forbidden:
+    except:
         pass
 
 # --- TİKE BASINCA ROL VERME ---
@@ -71,32 +101,26 @@ async def on_raw_reaction_remove(payload):
         if role and member:
             await member.remove_roles(role)
 
-# --- SOHBET KOMUTLARI ---
+# --- SOHBET VE ETİKETLEME ---
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
     msg = message.content.lower()
-    
     if msg == "selam":
         await message.channel.send("Selam, hoş geldin!")
     elif msg == "naber":
-        await message.channel.send("İyi senden naber? 18+ kanallara göz attın mı?")
-    elif msg == "zonnax":
-        await message.channel.send("Efendim askoo")
-    
+        await message.channel.send("İyi senden naber?")
     await bot.process_commands(message)
 
-# --- RASTGELE ETİKETLEME ---
 @tasks.loop(hours=3)
 async def ghost_mention():
-    secilen_kanal_id = random.choice(KANAL_LISTESI)
-    channel = bot.get_channel(secilen_kanal_id)
-    if channel:
-        online_members = [m for m in channel.guild.members if m.status != discord.Status.offline and not m.bot]
-        if online_members:
-            target = random.choice(online_members)
-            msg = await channel.send(f"{target.mention} Bu kanala da bir göz atmayı unutma!")
+    secilen = bot.get_channel(random.choice(KANAL_LISTESI))
+    if secilen:
+        onlines = [m for m in secilen.guild.members if m.status != discord.Status.offline and not m.bot]
+        if onlines:
+            target = random.choice(onlines)
+            m = await secilen.send(f"{target.mention} Göz atmayı unutma!")
             await asyncio.sleep(2)
-            await msg.delete()
+            await m.delete()
 
 bot.run(TOKEN)
