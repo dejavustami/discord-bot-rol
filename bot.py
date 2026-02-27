@@ -3,6 +3,25 @@ import discord
 from discord.ext import commands, tasks
 import asyncio
 import random
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+# Render'ın port hatasını engellemek için sahte sunucu
+class S(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+
+def run_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(('0.0.0.0', port), S)
+    server.serve_forever()
+
+# Sunucuyu arka planda başlat
+threading.Thread(target=run_server, daemon=True).start()
+
+# --- BURADAN SONRASI SENİN ESKİ KODUNUN DEVAMI ---
+intents = discord.Intents.default()
+# ... (Geri kalan tüm kodun aynı kalsın)
 
 # --- 1. YETKİLER VE AYARLAR ---
 intents = discord.Intents.default()
@@ -74,3 +93,7 @@ async def ghost_mention():
             await msg.delete()
 
 bot.run(TOKEN)
+            await msg.delete()
+
+bot.run(TOKEN)
+
