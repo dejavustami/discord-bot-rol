@@ -5,7 +5,8 @@ import asyncio
 import random
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
-# Render'ın port hatasını engellemek için sahte sunucu
+
+# Render Port Hilesi
 class S(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -16,14 +17,9 @@ def run_server():
     server = HTTPServer(('0.0.0.0', port), S)
     server.serve_forever()
 
-# Sunucuyu arka planda başlat
 threading.Thread(target=run_server, daemon=True).start()
 
-# --- BURADAN SONRASI SENİN ESKİ KODUNUN DEVAMI ---
-intents = discord.Intents.default()
-# ... (Geri kalan tüm kodun aynı kalsın)
-
-# --- 1. YETKİLER VE AYARLAR ---
+# Ayarlar
 intents = discord.Intents.default()
 intents.members = True          
 intents.message_content = True  
@@ -32,33 +28,31 @@ intents.reactions = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 TOKEN = os.getenv('TOKEN')
-KANAL_ID = 1248468672171868214  # Tike basılacak kanal ID'si
-ROL_ID = 1473455349729067151    # Verilecek rol ID'si
-EMOJI = '🔞'                     # Kullanılacak emoji
-
-# Ghost etiket atılacak kanalların listesi
+KANAL_ID = 1248468672171868214
+ROL_ID = 1473455349729067151
+EMOJI = '🔞'
 KANAL_LISTESI = [1473455979105489068, 1473455994309705749, 1473455988962234524]
 
-# --- 2. BOT HAZIR OLDUĞUNDA ---
 @bot.event
 async def on_ready():
-    print(f'Bot {bot.user} olarak giriş yaptı ve şu an aktif!')
+    print(f'Bot {bot.user} olarak giriş yaptı!')
     if not ghost_mention.is_running():
         ghost_mention.start()
+
 # --- YENİ ÜYE KATILINCA DM ATMA ---
 @bot.event
 async def on_member_join(member):
     try:
         embed = discord.Embed(
-            title=f"ZONNAX a hoş geldin, {member.name}!",
-            description="Sunucuda bu kanaldaki 18+ tikine basarsan kanallar açılır: <#1248468672171868214>\nİyi eğlenceler! https://discord.gg/HaPKyy4qtA",
+            title=f"ZONNAX'a hoş geldin, {member.name}!",
+            description="Sunucuda bu kanaldaki 18+ tikine basarsan kanallar açılır: <#1248468672171868214>\n\nİyi eğlenceler!",
             color=discord.Color.purple()
         )
         await member.send(embed=embed)
-        print(f"{member.name} kullanıcısına DM gönderildi.")
     except discord.Forbidden:
-        print(f"{member.name} kullanıcısının DM'leri kapalı olduğu için mesaj gönderilemedi.")
-# --- 3. TİKE BASINCA ROL VERME / ALMA ---
+        pass
+
+# --- TİKE BASINCA ROL VERME ---
 @bot.event
 async def on_raw_reaction_add(payload):
     if payload.channel_id == KANAL_ID and str(payload.emoji) == EMOJI:
@@ -67,7 +61,6 @@ async def on_raw_reaction_add(payload):
         member = guild.get_member(payload.user_id)
         if role and member and not member.bot:
             await member.add_roles(role)
-            print(f'{member.display_name} kullanıcısına rol verildi.')
 
 @bot.event
 async def on_raw_reaction_remove(payload):
@@ -77,28 +70,27 @@ async def on_raw_reaction_remove(payload):
         member = guild.get_member(payload.user_id)
         if role and member:
             await member.remove_roles(role)
-            print(f'{member.display_name} kullanıcısından rol alındı.')
 
-# --- 4. SOHBET KOMUTLARI ---
+# --- SOHBET KOMUTLARI ---
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
-    
     msg = message.content.lower()
+    
     if msg == "selam":
         await message.channel.send("Selam, hoş geldin!")
-    if msg == "naber":
-        await message.channel.send("iyi senden naber 18+ kanallara göz attın mı?")
-        if msg == "zonnax":
-        await message.channel.send("efendim askoo")
+    elif msg == "naber":
+        await message.channel.send("İyi senden naber? 18+ kanallara göz attın mı?")
+    elif msg == "zonnax":
+        await message.channel.send("Efendim askoo")
+    
     await bot.process_commands(message)
 
-# --- 5. RASTGELE AKTİF ÜYE ETİKETLEME ---
+# --- RASTGELE ETİKETLEME ---
 @tasks.loop(hours=3)
 async def ghost_mention():
     secilen_kanal_id = random.choice(KANAL_LISTESI)
     channel = bot.get_channel(secilen_kanal_id)
-    
     if channel:
         online_members = [m for m in channel.guild.members if m.status != discord.Status.offline and not m.bot]
         if online_members:
@@ -108,7 +100,3 @@ async def ghost_mention():
             await msg.delete()
 
 bot.run(TOKEN)
-
-
-
-
