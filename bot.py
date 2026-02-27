@@ -45,7 +45,19 @@ async def on_ready():
     print(f'Bot {bot.user} olarak giriş yaptı ve şu an aktif!')
     if not ghost_mention.is_running():
         ghost_mention.start()
-
+# --- YENİ ÜYE KATILINCA DM ATMA ---
+@bot.event
+async def on_member_join(member):
+    try:
+        embed = discord.Embed(
+            title=f"ZONNAX a hoş geldin, {member.name}!",
+            description="Sunucuda bu kanaldaki 18+ tikine basarsan kanallar açılır: <#1248468672171868214>\nİyi eğlenceler! https://discord.gg/HaPKyy4qtA",
+            color=discord.Color.purple()
+        )
+        await member.send(embed=embed)
+        print(f"{member.name} kullanıcısına DM gönderildi.")
+    except discord.Forbidden:
+        print(f"{member.name} kullanıcısının DM'leri kapalı olduğu için mesaj gönderilemedi.")
 # --- 3. TİKE BASINCA ROL VERME / ALMA ---
 @bot.event
 async def on_raw_reaction_add(payload):
@@ -75,7 +87,10 @@ async def on_message(message):
     msg = message.content.lower()
     if msg == "selam":
         await message.channel.send("Selam, hoş geldin!")
-    
+    if msg == "naber":
+        await message.channel.send("iyi senden naber 18+ kanallara göz attın mı?")
+        if msg == "zonnax":
+        await message.channel.send("efendim askoo")
     await bot.process_commands(message)
 
 # --- 5. RASTGELE AKTİF ÜYE ETİKETLEME ---
@@ -93,6 +108,7 @@ async def ghost_mention():
             await msg.delete()
 
 bot.run(TOKEN)
+
 
 
 
