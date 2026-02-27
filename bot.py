@@ -93,7 +93,6 @@ async def ghost_mention():
             await msg.delete()
 
 bot.run(TOKEN)
-            await msg.delete()
 
-bot.run(TOKEN)
+
 
