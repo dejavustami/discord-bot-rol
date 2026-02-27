@@ -32,7 +32,7 @@ TOKEN = os.getenv('TOKEN')
 KANAL_ID = 1248468672171868214  # Rol alma kanalı
 ROL_ID = 1473455349729067151    # Verilecek rol
 EMOJI = '🔞'
-HOSGELDIN_KANAL_ID = 1248468672171868214 # Üye giriş mesajının gideceği kanal
+HOSGELDIN_KANAL_ID = 1473456025981161535 # Üye giriş mesajının gideceği kanal
 KANAL_LISTESI = [1473455979105489068, 1473455994309705749, 1473455988962234524]
 
 invites = {} # Davetleri tutacak sözlük
@@ -124,3 +124,4 @@ async def ghost_mention():
             await m.delete()
 
 bot.run(TOKEN)
+
