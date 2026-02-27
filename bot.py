@@ -6,9 +6,9 @@ import random
 
 # --- 1. YETKİLER VE AYARLAR ---
 intents = discord.Intents.default()
-intents.members = True          # Üyeleri görmesi ve DM atması için
-intents.message_content = True  # Mesajları okuması (Chat/Ban) için
-intents.reactions = True        # Tık atmayı algılaması için
+intents.members = True          
+intents.message_content = True  
+intents.reactions = True        
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
@@ -16,7 +16,9 @@ TOKEN = os.getenv('TOKEN')
 KANAL_ID = 1248468672171868214  # Tike basılacak kanal ID'si
 ROL_ID = 1473455349729067151    # Verilecek rol ID'si
 EMOJI = '🔞'                     # Kullanılacak emoji
-GHOST_KANAL_ID = 123456789...   # Buraya 3 saatte bir etiket atılacak kanalın ID'sini yaz!
+
+# Ghost etiket atılacak kanalların listesi
+KANAL_LISTESI = [1473455979105489068, 1473455994309705749, 1473455988962234524]
 
 # --- 2. BOT HAZIR OLDUĞUNDA ---
 @bot.event
@@ -46,15 +48,7 @@ async def on_raw_reaction_remove(payload):
             await member.remove_roles(role)
             print(f'{member.display_name} kullanıcısından rol alındı.')
 
-# --- 4. YENİ ÜYEYE DM ATMA ---
-@bot.event
-async def on_member_join(member):
-    try:
-        await member.send(f"Selam {member.name}, sunucumuza hoş geldin! Sohbetimize bekliyoruz.")
-    except:
-        print(f"{member.name} kullanıcısının DM'si kapalı.")
-
-# --- 5. SOHBET VE MODERASYON (Ban/Kick) ---
+# --- 4. SOHBET KOMUTLARI ---
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
@@ -62,32 +56,17 @@ async def on_message(message):
     msg = message.content.lower()
     if msg == "selam":
         await message.channel.send("Selam, hoş geldin!")
-    elif msg == "nasılsın":
-        await message.channel.send("İyiyim, sen nasılsın?")
     
     await bot.process_commands(message)
 
-@bot.command()
-@commands.has_permissions(ban_members=True)
-async def ban(ctx, member: discord.Member, *, reason="Sebep yok"):
-    await member.ban(reason=reason)
-    await ctx.send(f"{member.mention} yasaklandı!")
-
-# --- 6. GHOST MENTION (3 Saatte Bir Etiketle ve Sil) ---
-
+# --- 5. RASTGELE AKTİF ÜYE ETİKETLEME ---
 @tasks.loop(hours=3)
 async def ghost_mention():
-    # Buraya istediğin kadar kanal ID'si ekleyebilirsin
-    kanal_listesi = [1473455979105489068, 1473455994309705749, 1473455988962234524, 1473456031697993789] 
-    
-    # Listeden rastgele bir kanal seç
-    secilen_kanal_id = random.choice(kanal_listesi)
+    secilen_kanal_id = random.choice(KANAL_LISTESI)
     channel = bot.get_channel(secilen_kanal_id)
     
     if channel:
-        # Seçilen kanaldaki aktif üyeleri bul
         online_members = [m for m in channel.guild.members if m.status != discord.Status.offline and not m.bot]
-        
         if online_members:
             target = random.choice(online_members)
             msg = await channel.send(f"{target.mention} Bu kanala da bir göz atmayı unutma!")
