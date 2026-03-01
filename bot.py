@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands, tasks
 import asyncio
 import random
+import re
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
@@ -36,11 +37,12 @@ HOSGELDIN_KANAL_ID = 1473456025981161535
 KANAL_LISTESI = [1473455979105489068, 1473455994309705749, 1473455988962234524]
 
 invites = {} 
+last_messages = {} # Spam kontrolü için
 
 # --- 3. BOT HAZIR OLDUĞUNDA ---
 @bot.event
 async def on_ready():
-    print(f'Bot {bot.user} aktif!')
+    print(f'Bot {bot.user} aktif ve koruma devrede!')
     for guild in bot.guilds:
         try:
             invites[guild.id] = await guild.invites()
@@ -67,20 +69,55 @@ async def on_member_join(member):
     channel = bot.get_channel(HOSGELDIN_KANAL_ID)
     if channel:
         toplam = len(member.guild.members)
-        # BURASI DEĞİŞTİ: member.name yerine member.mention kullanıldı
         await channel.send(f"📥 **{member.mention}**, **{inviter_name}** tarafından davet edildi ve sunucuda **{toplam}** kişi olduk!")
 
-    try:
-        embed = discord.Embed(
-            title=f"ZONNAX'a hoş geldin!",
-            description=f"Selam {member.mention}, kanalları görmek için tike basmayı unutma: <#{KANAL_ID}>",
-            color=discord.Color.purple()
-        )
-        await member.send(embed=embed)
-    except:
-        pass
+# --- 5. OTOMATİK KORUMA (SPAM / CAPS / LINK) ---
+@bot.event
+async def on_message(message):
+    if message.author.bot or not message.guild: return
+    
+    # 1. Link Engelleyici
+    if re.search(r'(https?://\S+)', message.content):
+        if not message.author.guild_permissions.administrator:
+            await message.delete()
+            return await message.channel.send(f"🚫 {message.author.mention}, link paylaşımı yasaktır!", delete_after=3)
 
-# --- 5. TİKE BASINCA ROL VERME / ALMA ---
+    # 2. Capslock Engelleyici (5 harften büyük ve %70'i büyükse)
+    if len(message.content) > 5 and sum(1 for c in message.content if c.isupper()) / len(message.content) > 0.7:
+        if not message.author.guild_permissions.administrator:
+            await message.delete()
+            return await message.channel.send(f"🚫 {message.author.mention}, lütfen büyük harf kullanma!", delete_after=3)
+
+    # 3. Spam Engelleyici (Ard arda aynı mesaj)
+    author_id = message.author.id
+    if author_id in last_messages and last_messages[author_id] == message.content:
+        if not message.author.guild_permissions.administrator:
+            await message.delete()
+            return await message.channel.send(f"🚫 {message.author.mention}, lütfen spam yapma!", delete_after=3)
+    last_messages[author_id] = message.content
+
+    await bot.process_commands(message)
+
+# --- 6. MODERASYON KOMUTLARI ---
+@bot.command()
+@commands.has_permissions(kick_members=True)
+async def kick(ctx, member: discord.Member, *, reason=None):
+    await member.kick(reason=reason)
+    await ctx.send(f'✅ {member.mention} atıldı.')
+
+@bot.command()
+@commands.has_permissions(ban_members=True)
+async def ban(ctx, member: discord.Member, *, reason=None):
+    await member.ban(reason=reason)
+    await ctx.send(f'🔨 {member.mention} yasaklandı.')
+
+@bot.command()
+@commands.has_permissions(manage_messages=True)
+async def temizle(ctx, miktar: int):
+    await ctx.channel.purge(limit=miktar + 1)
+    msg = await ctx.send(f'🗑️ {miktar} mesaj temizlendi.', delete_after=3)
+
+# --- 7. TİKE BASINCA ROL VERME ---
 @bot.event
 async def on_raw_reaction_add(payload):
     if payload.channel_id == KANAL_ID and str(payload.emoji) == EMOJI:
@@ -99,22 +136,7 @@ async def on_raw_reaction_remove(payload):
         if role and member:
             await member.remove_roles(role)
 
-# --- 6. SOHBET KOMUTLARI ---
-@bot.event
-async def on_message(message):
-    if message.author == bot.user: return
-    msg = message.content.lower()
-    
-    if msg == "selam":
-        await message.channel.send("Selam, hoş geldin!")
-    elif msg == "naber":
-        await message.channel.send("İyi senden naber?")
-    elif msg == "zonnax":
-        await message.channel.send("Efendim askoo")
-    
-    await bot.process_commands(message)
-
-# --- 7. RASTGELE ETİKETLEME ---
+# --- 8. RASTGELE ETİKETLEME ---
 @tasks.loop(hours=3)
 async def ghost_mention():
     secilen_kanal_id = random.choice(KANAL_LISTESI)
@@ -123,7 +145,7 @@ async def ghost_mention():
         online_members = [m for m in channel.guild.members if m.status != discord.Status.offline and not m.bot]
         if online_members:
             target = random.choice(online_members)
-            m = await channel.send(f"{target.mention} Buraya da bak!")
+            m = await channel.send(f"{target.mention} Buraya bak!")
             await asyncio.sleep(2)
             await m.delete()
 
