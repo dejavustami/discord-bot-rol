@@ -37,21 +37,38 @@ HOSGELDIN_KANAL_ID = 1473456025981161535
 KANAL_LISTESI = [1473455979105489068, 1473455994309705749, 1473455988962234524]
 
 invites = {} 
-last_messages = {} # Spam kontrolü için
+last_messages = {}
 
 # --- 3. BOT HAZIR OLDUĞUNDA ---
 @bot.event
 async def on_ready():
-    print(f'Bot {bot.user} aktif ve koruma devrede!')
+    print(f'Bot {bot.user} aktif! Toplu paylaşım komutu hazır.')
     for guild in bot.guilds:
         try:
             invites[guild.id] = await guild.invites()
-        except:
-            pass
+        except: pass
     if not ghost_mention.is_running():
         ghost_mention.start()
 
-# --- 4. ÜYE KATILINCA (ETİKETLİ MESAJ) ---
+# --- 4. GÜNCELLENMİŞ: ANLIK TOPLU PAYLAŞIM KOMUTU ---
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def paylas(ctx, mesaj: str, *linkler):
+    """
+    Kullanım: !paylas "Final Mesajı" link1 link2 link3 ...
+    """
+    if len(linkler) < 1:
+        return await ctx.send("❌ Paylaşılacak link bulamadım!")
+
+    # Tüm videoları aynı anda (hızlıca) atar
+    for link in linkler:
+        await ctx.send(link)
+    
+    # En sona mesajı atar ve tik ekler
+    final_msg = await ctx.send(mesaj)
+    await final_msg.add_reaction("✅")
+
+# --- 5. ÜYE KATILINCA (ETİKETLİ) ---
 @bot.event
 async def on_member_join(member):
     inviter_name = "Bilinmiyor"
@@ -63,61 +80,47 @@ async def on_member_join(member):
             if invite.uses < next((i.uses for i in after if i.code == invite.code), 0):
                 inviter_name = invite.inviter.name
                 break
-    except:
-        pass
+    except: pass
 
     channel = bot.get_channel(HOSGELDIN_KANAL_ID)
     if channel:
         toplam = len(member.guild.members)
         await channel.send(f"📥 **{member.mention}**, **{inviter_name}** tarafından davet edildi ve sunucuda **{toplam}** kişi olduk!")
 
-# --- 5. OTOMATİK KORUMA (SPAM / CAPS / LINK) ---
+# --- 6. OTOMATİK KORUMA (SPAM / CAPS / LINK) ---
 @bot.event
 async def on_message(message):
     if message.author.bot or not message.guild: return
     
-    # 1. Link Engelleyici
-    if re.search(r'(https?://\S+)', message.content):
-        if not message.author.guild_permissions.administrator:
-            await message.delete()
-            return await message.channel.send(f"🚫 {message.author.mention}, link paylaşımı yasaktır!", delete_after=3)
+    if not message.author.guild_permissions.administrator:
+        # Link Engelleyici
+        if re.search(r'(https?://\S+)', message.content):
+            if "!paylas" not in message.content:
+                await message.delete()
+                return await message.channel.send(f"🚫 {message.author.mention}, link yasak!", delete_after=3)
 
-    # 2. Capslock Engelleyici (5 harften büyük ve %70'i büyükse)
-    if len(message.content) > 5 and sum(1 for c in message.content if c.isupper()) / len(message.content) > 0.7:
-        if not message.author.guild_permissions.administrator:
+        # Capslock Engelleyici
+        if len(message.content) > 5 and sum(1 for c in message.content if c.isupper()) / len(message.content) > 0.7:
             await message.delete()
-            return await message.channel.send(f"🚫 {message.author.mention}, lütfen büyük harf kullanma!", delete_after=3)
+            return await message.channel.send(f"🚫 {message.author.mention}, bağırma!", delete_after=3)
 
-    # 3. Spam Engelleyici (Ard arda aynı mesaj)
-    author_id = message.author.id
-    if author_id in last_messages and last_messages[author_id] == message.content:
-        if not message.author.guild_permissions.administrator:
+        # Spam Engelleyici
+        author_id = message.author.id
+        if author_id in last_messages and last_messages[author_id] == message.content:
             await message.delete()
-            return await message.channel.send(f"🚫 {message.author.mention}, lütfen spam yapma!", delete_after=3)
-    last_messages[author_id] = message.content
+            return await message.channel.send(f"🚫 {message.author.mention}, spam yapma!", delete_after=3)
+        last_messages[author_id] = message.content
 
     await bot.process_commands(message)
 
-# --- 6. MODERASYON KOMUTLARI ---
-@bot.command()
-@commands.has_permissions(kick_members=True)
-async def kick(ctx, member: discord.Member, *, reason=None):
-    await member.kick(reason=reason)
-    await ctx.send(f'✅ {member.mention} atıldı.')
-
-@bot.command()
-@commands.has_permissions(ban_members=True)
-async def ban(ctx, member: discord.Member, *, reason=None):
-    await member.ban(reason=reason)
-    await ctx.send(f'🔨 {member.mention} yasaklandı.')
-
+# --- 7. MODERASYON KOMUTLARI ---
 @bot.command()
 @commands.has_permissions(manage_messages=True)
 async def temizle(ctx, miktar: int):
     await ctx.channel.purge(limit=miktar + 1)
-    msg = await ctx.send(f'🗑️ {miktar} mesaj temizlendi.', delete_after=3)
+    await ctx.send(f'🗑️ {miktar} mesaj temizlendi.', delete_after=3)
 
-# --- 7. TİKE BASINCA ROL VERME ---
+# --- 8. TİKE BASINCA ROL VERME ---
 @bot.event
 async def on_raw_reaction_add(payload):
     if payload.channel_id == KANAL_ID and str(payload.emoji) == EMOJI:
@@ -136,7 +139,7 @@ async def on_raw_reaction_remove(payload):
         if role and member:
             await member.remove_roles(role)
 
-# --- 8. RASTGELE ETİKETLEME ---
+# --- 9. RASTGELE ETİKETLEME ---
 @tasks.loop(hours=3)
 async def ghost_mention():
     secilen_kanal_id = random.choice(KANAL_LISTESI)
