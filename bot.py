@@ -42,7 +42,7 @@ last_messages = {}
 # --- 3. BOT HAZIR OLDUĞUNDA ---
 @bot.event
 async def on_ready():
-    print(f'Bot {bot.user} aktif! Video paylaşım komutu hazır.')
+    print(f'Bot {bot.user} aktif! Temizlemeli paylaşım hazır.')
     for guild in bot.guilds:
         try:
             invites[guild.id] = await guild.invites()
@@ -50,27 +50,27 @@ async def on_ready():
     if not ghost_mention.is_running():
         ghost_mention.start()
 
-# --- 4. GÜNCELLENMİŞ: MP4 VİDEO PAYLAŞIM KOMUTU ---
+# --- 4. GÜNCELLENMİŞ: OTOMATİK SİLEN MP4 PAYLAŞIM KOMUTU ---
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def paylas(ctx, *, mesaj: str):
-    """
-    Kullanım: Videoları yükle (attachment), açıklama kısmına !paylas "Mesajın" yaz.
-    """
-    # Eğer mesajla birlikte yüklenmiş dosya yoksa uyarı ver
     if not ctx.message.attachments:
-        return await ctx.send("❌ Lütfen mesajın yanında .mp4 videolarını da yükle!")
+        return await ctx.send("❌ Lütfen videoları da yükle!", delete_after=3)
 
-    await ctx.send("📤 Videolar yükleniyor, lütfen bekle...", delete_after=3)
-
-    # Yüklenen tüm dosyaları tek tek kanala geri gönderir
+    # Videoları paylaş
     for attachment in ctx.message.attachments:
         file = await attachment.to_file()
         await ctx.send(file=file)
     
-    # En sona mesajı atar ve tik ekler
+    # Final mesajı ve Reaksiyon
     final_msg = await ctx.send(mesaj)
     await final_msg.add_reaction("✅")
+
+    # SENİN MESAJINI SİLER (Komutu verdiğin mesaj)
+    try:
+        await ctx.message.delete()
+    except:
+        pass
 
 # --- 5. ÜYE KATILINCA (ETİKETLİ) ---
 @bot.event
