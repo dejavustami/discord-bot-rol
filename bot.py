@@ -26,6 +26,7 @@ intents.members = True
 intents.message_content = True  
 intents.reactions = True        
 intents.invites = True 
+intents.voice_states = True # SES YETKİSİ EKLENDİ
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
@@ -36,7 +37,6 @@ EMOJI = '🔞'
 HOSGELDIN_KANAL_ID = 1473456025981161535 
 KANAL_LISTESI = [1473455979105489068, 1473455994309705749, 1473455988962234524]
 
-# --- 3. SOHBET HAFIZASI ---
 sohbet_hafizasi = {
     "selam": "Aleyküm selam, hoş geldin canım!",
     "naber": "İyidir bebegim, senden naber?",
@@ -45,28 +45,40 @@ sohbet_hafizasi = {
 }
 
 invites = {} 
-last_messages = {}
 
 @bot.event
 async def on_ready():
-    print(f'Bot {bot.user} aktif! Cümle içi tarama devrede.')
+    print(f'Bot {bot.user} aktif! Ses sistemi hazır.')
     if not ghost_mention.is_running(): ghost_mention.start()
 
-# --- 4. PANEL KOMUTLARI ---
+# --- 3. SES KANALINA KATILMA KOMUTLARI ---
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def katıl(ctx):
+    if ctx.author.voice:
+        channel = ctx.author.voice.channel
+        # Kanala bağlanırken mikrofon ve kulaklığı kapatır (self_deaf ve self_mute)
+        vc = await channel.connect(self_deaf=True, self_mute=True)
+        await ctx.send(f"🎤 **{channel.name}** kanalına kulaklık ve mikrofon kapalı şekilde katıldım!")
+    else:
+        await ctx.send("❌ Önce bir ses kanalına girmen lazım!")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def ayrıl(ctx):
+    if ctx.voice_client:
+        await ctx.voice_client.disconnect()
+        await ctx.send("👋 Ses kanalından ayrıldım.")
+    else:
+        await ctx.send("❌ Zaten bir ses kanalında değilim.")
+
+# --- 4. PANEL VE PAYLAŞIM KOMUTLARI ---
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def ekle(ctx, kelime: str, *, cevap: str):
     sohbet_hafizasi[kelime.lower()] = cevap
-    await ctx.send(f"✅ Eklendi! Artık cümlenin içinde **{kelime}** geçerse cevap vereceğim.")
+    await ctx.send(f"✅ Eklendi! Cümle içinde **{kelime}** geçerse cevap vereceğim.")
 
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def liste(ctx):
-    liste_metni = "\n".join([f"**{k}** -> {v}" for k, v in sohbet_hafizasi.items()])
-    embed = discord.Embed(title="🤖 Sohbet Paneli", description=liste_metni or "Liste boş.", color=0x7289da)
-    await ctx.send(embed=embed)
-
-# --- 5. PAYLAŞIM, SOHBET VE KORUMA ---
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def paylas(ctx, *, mesaj: str):
@@ -80,31 +92,28 @@ async def paylas(ctx, *, mesaj: str):
     try: await ctx.message.delete()
     except: pass
 
+# --- 5. MESAJ KONTROLÜ (SOHBET VE KORUMA) ---
 @bot.event
 async def on_message(message):
     if message.author.bot or not message.guild: return
     
     msg_content = message.content.lower()
 
-    # --- CÜMLE İÇİ KELİME TARAMA ---
+    # Sohbet tarama
     for kelime, cevap in sohbet_hafizasi.items():
-        if kelime in msg_content: # Eğer kelime mesajın herhangi bir yerindeyse
+        if kelime in msg_content:
             await message.channel.send(f"{message.author.mention} {cevap}")
-            break # Birden fazla cevap vermesin diye durduruyoruz
+            break
 
-    # --- KORUMA SİSTEMİ ---
+    # Koruma
     if not message.author.guild_permissions.administrator:
         if re.search(r'(https?://\S+)', message.content) and "!paylas" not in message.content:
             await message.delete()
             return await message.channel.send(f"🚫 Link yasak!", delete_after=3)
-        
-        if len(message.content) > 10 and sum(1 for c in message.content if c.isupper()) / len(message.content) > 0.7:
-            await message.delete()
-            return await message.channel.send(f"🚫 Bağırma!", delete_after=3)
 
     await bot.process_commands(message)
 
-# --- 6. DİĞERLERİ ---
+# --- 6. DİĞER SİSTEMLER (TEMİZLE, ROL) ---
 @bot.command()
 @commands.has_permissions(manage_messages=True)
 async def temizle(ctx, miktar: int):
@@ -130,7 +139,7 @@ async def on_raw_reaction_remove(payload):
 async def ghost_mention():
     secilen_kanal_id = random.choice(KANAL_LISTESI)
     channel = bot.get_channel(secilen_kanal_id)
-    if channel and channel.guild.members:
+    if channel:
         online = [m for m in channel.guild.members if m.status != discord.Status.offline and not m.bot]
         if online:
             target = random.choice(online)
