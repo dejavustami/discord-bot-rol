@@ -49,7 +49,7 @@ async def on_ready():
     if not ghost_mention.is_running():
         ghost_mention.start()
 
-# --- 4. ÜYE KATILINCA (DM + TEK KANAL MESAJI) ---
+# --- 4. ÜYE KATILINCA (ETİKETLİ MESAJ) ---
 @bot.event
 async def on_member_join(member):
     inviter_name = "Bilinmiyor"
@@ -67,12 +67,13 @@ async def on_member_join(member):
     channel = bot.get_channel(HOSGELDIN_KANAL_ID)
     if channel:
         toplam = len(member.guild.members)
-        await channel.send(f"📥 **{member.name}**, **{inviter_name}** tarafından davet edildi ve sunucuda **{toplam}** kişi olduk!")
+        # BURASI DEĞİŞTİ: member.name yerine member.mention kullanıldı
+        await channel.send(f"📥 **{member.mention}**, **{inviter_name}** tarafından davet edildi ve sunucuda **{toplam}** kişi olduk!")
 
     try:
         embed = discord.Embed(
             title=f"ZONNAX'a hoş geldin!",
-            description=f"Selam {member.name}, kanalları görmek için tike basmayı unutma: <#{KANAL_ID}>",
+            description=f"Selam {member.mention}, kanalları görmek için tike basmayı unutma: <#{KANAL_ID}>",
             color=discord.Color.purple()
         )
         await member.send(embed=embed)
