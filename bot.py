@@ -42,7 +42,7 @@ last_messages = {}
 # --- 3. BOT HAZIR OLDUĞUNDA ---
 @bot.event
 async def on_ready():
-    print(f'Bot {bot.user} aktif! Toplu paylaşım komutu hazır.')
+    print(f'Bot {bot.user} aktif! Video paylaşım komutu hazır.')
     for guild in bot.guilds:
         try:
             invites[guild.id] = await guild.invites()
@@ -50,19 +50,23 @@ async def on_ready():
     if not ghost_mention.is_running():
         ghost_mention.start()
 
-# --- 4. GÜNCELLENMİŞ: ANLIK TOPLU PAYLAŞIM KOMUTU ---
+# --- 4. GÜNCELLENMİŞ: MP4 VİDEO PAYLAŞIM KOMUTU ---
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def paylas(ctx, mesaj: str, *linkler):
+async def paylas(ctx, *, mesaj: str):
     """
-    Kullanım: !paylas "Final Mesajı" link1 link2 link3 ...
+    Kullanım: Videoları yükle (attachment), açıklama kısmına !paylas "Mesajın" yaz.
     """
-    if len(linkler) < 1:
-        return await ctx.send("❌ Paylaşılacak link bulamadım!")
+    # Eğer mesajla birlikte yüklenmiş dosya yoksa uyarı ver
+    if not ctx.message.attachments:
+        return await ctx.send("❌ Lütfen mesajın yanında .mp4 videolarını da yükle!")
 
-    # Tüm videoları aynı anda (hızlıca) atar
-    for link in linkler:
-        await ctx.send(link)
+    await ctx.send("📤 Videolar yükleniyor, lütfen bekle...", delete_after=3)
+
+    # Yüklenen tüm dosyaları tek tek kanala geri gönderir
+    for attachment in ctx.message.attachments:
+        file = await attachment.to_file()
+        await ctx.send(file=file)
     
     # En sona mesajı atar ve tik ekler
     final_msg = await ctx.send(mesaj)
@@ -87,24 +91,21 @@ async def on_member_join(member):
         toplam = len(member.guild.members)
         await channel.send(f"📥 **{member.mention}**, **{inviter_name}** tarafından davet edildi ve sunucuda **{toplam}** kişi olduk!")
 
-# --- 6. OTOMATİK KORUMA (SPAM / CAPS / LINK) ---
+# --- 6. OTOMATİK KORUMA ---
 @bot.event
 async def on_message(message):
     if message.author.bot or not message.guild: return
     
     if not message.author.guild_permissions.administrator:
-        # Link Engelleyici
         if re.search(r'(https?://\S+)', message.content):
             if "!paylas" not in message.content:
                 await message.delete()
                 return await message.channel.send(f"🚫 {message.author.mention}, link yasak!", delete_after=3)
 
-        # Capslock Engelleyici
         if len(message.content) > 5 and sum(1 for c in message.content if c.isupper()) / len(message.content) > 0.7:
             await message.delete()
             return await message.channel.send(f"🚫 {message.author.mention}, bağırma!", delete_after=3)
 
-        # Spam Engelleyici
         author_id = message.author.id
         if author_id in last_messages and last_messages[author_id] == message.content:
             await message.delete()
@@ -113,7 +114,7 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-# --- 7. MODERASYON KOMUTLARI ---
+# --- 7. MODERASYON ---
 @bot.command()
 @commands.has_permissions(manage_messages=True)
 async def temizle(ctx, miktar: int):
