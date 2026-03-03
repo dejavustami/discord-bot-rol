@@ -6,6 +6,7 @@ import random
 import re
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
+import time
 
 # --- 1. RENDER 7/24 AKTİFLİK ---
 class S(BaseHTTPRequestHandler):
@@ -35,7 +36,7 @@ ROL_ID = 1473455349729067151
 EMOJI = '🔞'
 HOSGELDIN_KANAL_ID = 1473456025981161535 
 
-# --- 3. 7/24 SES SİSTEMİ (HATASIZ VERSİYON) ---
+# --- 3. 7/24 SES SİSTEMİ ---
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def katıl(ctx):
@@ -43,33 +44,18 @@ async def katıl(ctx):
         return await ctx.send("❌ Önce bir ses kanalına gir!")
     
     channel = ctx.author.voice.channel
-    
-    # Mevcut bağlantı varsa temizle
     if ctx.voice_client:
-        try:
-            await ctx.voice_client.disconnect(force=True)
-        except:
-            pass
+        await ctx.voice_client.disconnect(force=True)
         await asyncio.sleep(1)
 
     try:
-        # Kendi kendine çıkmayı engelleyen reconnect ve otomatik sağırlaştırma
-        vc = await channel.connect(reconnect=True, timeout=30.0, self_deaf=True)
+        # Kendi kendine çıkmayı engelleyen ayarlar
+        await channel.connect(reconnect=True, self_deaf=True)
         await ctx.send(f"🎤 **{channel.name}** kanalında 7/24 nöbetteyim!")
     except Exception as e:
         await ctx.send(f"⚠️ Bağlantı hatası: {e}")
 
-@bot.event
-async def on_voice_state_update(member, before, after):
-    # Bot düşerse geri bağlanma mantığı
-    if member.id == bot.user.id and after.channel is None and before.channel is not None:
-        await asyncio.sleep(10) # 10 saniye bekle (Discord rate limit için)
-        try:
-            await before.channel.connect(reconnect=True, self_deaf=True)
-        except:
-            pass
-
-# --- 4. DİĞER SİSTEMLER (SHIP, ROL, KORUMA) ---
+# --- 4. SHIP SİSTEMİ ---
 @bot.command(name="ship")
 async def ship(ctx):
     uyeler = [m for m in ctx.guild.members if not m.bot]
@@ -81,6 +67,16 @@ async def ship(ctx):
     view = discord.ui.View()
     view.add_item(discord.ui.Button(label=f"%{yuzde} Uyum", style=discord.ButtonStyle.danger, disabled=True))
     await ctx.send(embed=embed, view=view)
+
+# --- 5. KORUMA VE ROL SİSTEMİ ---
+@bot.event
+async def on_message(message):
+    if message.author.bot: return
+    if not message.author.guild_permissions.administrator:
+        if re.search(r'(https?://\S+)', message.content):
+            await message.delete()
+            return
+    await bot.process_commands(message)
 
 @bot.event
 async def on_raw_reaction_add(payload):
@@ -98,10 +94,11 @@ async def on_raw_reaction_remove(payload):
         member = guild.get_member(payload.user_id)
         if role and member: await member.remove_roles(role)
 
+# --- 6. HOŞ GELDİN ---
 @bot.event
 async def on_member_join(member):
     kanal = bot.get_channel(HOSGELDIN_KANAL_ID)
     if kanal:
-        await kanal.send(f"📥 {member.mention} geldi! **{member.guild.member_count}** kişiyiz! 🎉")
+        await kanal.send(f"📥 {member.mention} sunucuya katıldı! **{member.guild.member_count}** kişi olduk! 🎉")
 
 bot.run(TOKEN)
