@@ -36,26 +36,43 @@ ROL_ID = 1473455349729067151
 EMOJI = '🔞'
 HOSGELDIN_KANAL_ID = 1473456025981161535 
 
+sohbet_hafizasi = {"selam": "Aleyküm selam!", "naber": "İyidir bebegim, senden naber?"}
+user_message_times = {} 
+last_messages = {}
+
 # --- 3. 7/24 SES SİSTEMİ ---
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def katıl(ctx):
     if not ctx.author.voice:
         return await ctx.send("❌ Önce bir ses kanalına gir!")
-    
     channel = ctx.author.voice.channel
     if ctx.voice_client:
         await ctx.voice_client.disconnect(force=True)
         await asyncio.sleep(1)
-
     try:
-        # Kendi kendine çıkmayı engelleyen ayarlar
         await channel.connect(reconnect=True, self_deaf=True)
         await ctx.send(f"🎤 **{channel.name}** kanalında 7/24 nöbetteyim!")
     except Exception as e:
         await ctx.send(f"⚠️ Bağlantı hatası: {e}")
 
-# --- 4. SHIP SİSTEMİ ---
+# --- 4. GELİŞMİŞ PAYLAŞ SİSTEMİ (VİDEO VE DOSYA DAHİL) ---
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def paylas(ctx, *, mesaj: str = ""):
+    if ctx.message.attachments:
+        for a in ctx.message.attachments:
+            # Video, resim veya her türlü dosyayı gönderir
+            await ctx.send(content=mesaj if mesaj else None, file=await a.to_file())
+            mesaj = "" # Mesajı sadece ilk dosyayla gönder
+        await ctx.message.delete()
+    else:
+        if mesaj:
+            m = await ctx.send(mesaj)
+            await m.add_reaction("✅")
+            await ctx.message.delete()
+
+# --- 5. SHIP SİSTEMİ ---
 @bot.command(name="ship")
 async def ship(ctx):
     uyeler = [m for m in ctx.guild.members if not m.bot]
@@ -68,14 +85,33 @@ async def ship(ctx):
     view.add_item(discord.ui.Button(label=f"%{yuzde} Uyum", style=discord.ButtonStyle.danger, disabled=True))
     await ctx.send(embed=embed, view=view)
 
-# --- 5. KORUMA VE ROL SİSTEMİ ---
+# --- 6. KORUMA VE ROL SİSTEMİ ---
 @bot.event
 async def on_message(message):
-    if message.author.bot: return
+    if message.author.bot or not message.guild: return
+    
     if not message.author.guild_permissions.administrator:
-        if re.search(r'(https?://\S+)', message.content):
+        # Link Koruma
+        if re.search(r'(https?://\S+)', message.content) and "!paylas" not in message.content:
             await message.delete()
             return
+        
+        # Spam Filtresi
+        uid = message.author.id
+        now = time.time()
+        if uid not in user_message_times: user_message_times[uid] = []
+        user_message_times[uid].append(now)
+        user_message_times[uid] = [t for t in user_message_times[uid] if now - t < 5]
+        if len(user_message_times[uid]) > 4:
+            await message.channel.purge(limit=10, check=lambda m: m.author.id == uid)
+            return
+
+    # Sohbet
+    msg = message.content.lower()
+    for k, v in sohbet_hafizasi.items():
+        if k in msg:
+            await message.channel.send(f"{message.author.mention} {v}")
+            break
     await bot.process_commands(message)
 
 @bot.event
@@ -94,11 +130,11 @@ async def on_raw_reaction_remove(payload):
         member = guild.get_member(payload.user_id)
         if role and member: await member.remove_roles(role)
 
-# --- 6. HOŞ GELDİN ---
+# --- 7. HOŞ GELDİN ---
 @bot.event
 async def on_member_join(member):
     kanal = bot.get_channel(HOSGELDIN_KANAL_ID)
     if kanal:
-        await kanal.send(f"📥 {member.mention} sunucuya katıldı! **{member.guild.member_count}** kişi olduk! 🎉")
+        await kanal.send(f"📥 {member.mention} geldi! **{member.guild.member_count}** kişiyiz! 🎉")
 
 bot.run(TOKEN)
