@@ -57,27 +57,44 @@ async def katıl(ctx):
     except Exception as e:
         await ctx.send(f"⚠️ Bağlantı hatası: {e}")
 
-# --- 4. ÖZEL VİDEO PAYLAŞMA SİSTEMİ (İSTEDİĞİN ÖZELLİK) ---
+# --- 4. GELİŞMİŞ PAYLAŞ SİSTEMİ (BOYUT KONTROLLÜ) ---
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def paylas(ctx, *, mesaj: str):
-    if not ctx.message.attachments:
-        return await ctx.send("❌ Lütfen videoları da yükle!", delete_after=3)
-
-    # Videoları/Dosyaları tek tek paylaş
-    for attachment in ctx.message.attachments:
-        file = await attachment.to_file()
-        await ctx.send(file=file)
-    
-    # Yazdığın metni en son gönder ve reaksiyon ekle
-    final_msg = await ctx.send(mesaj)
-    await final_msg.add_reaction("✅")
-
-    # Senin yazdığın komut mesajını siler
-    try:
-        await ctx.message.delete()
-    except:
-        pass
+async def paylas(ctx, *, mesaj: str = ""):
+    # Eğer dosya eklenmişse
+    if ctx.message.attachments:
+        for attachment in ctx.message.attachments:
+            # Botun yükleme sınırı kontrolü (Yaklaşık 25MB = 26,214,400 bytes)
+            if attachment.size > 26214400:
+                await ctx.send(f"⚠️ **{attachment.filename}** çok büyük (Nitro sınırı)! Botlar en fazla 25MB yükleyebilir. Lütfen daha küçük bir video yükle.", delete_after=10)
+                continue
+            
+            try:
+                file = await attachment.to_file()
+                await ctx.send(file=file)
+            except Exception as e:
+                await ctx.send(f"❌ Dosya gönderilemedi: {e}", delete_after=5)
+        
+        # Dosyalardan sonra mesajı gönder
+        if mesaj:
+            final_msg = await ctx.send(mesaj)
+            await final_msg.add_reaction("✅")
+            
+        try:
+            await ctx.message.delete()
+        except:
+            pass
+            
+    # Eğer dosya yoksa ama link/mesaj varsa (Nitro videoları için link yöntemini kullanabilirsin)
+    elif mesaj:
+        final_msg = await ctx.send(mesaj)
+        await final_msg.add_reaction("✅")
+        try:
+            await ctx.message.delete()
+        except:
+            pass
+    else:
+        await ctx.send("❌ Paylaşacak bir şey bulamadım!", delete_after=3)
 
 # --- 5. SHIP SİSTEMİ ---
 @bot.command(name="ship")
@@ -151,3 +168,4 @@ async def on_member_join(member):
         await kanal.send(f"📥 {member.mention} sunucuya katıldı! Seninle birlikte **{member.guild.member_count}** kişi olduk! 🎉")
 
 bot.run(TOKEN)
+
